@@ -16,15 +16,6 @@ ShelfClock has two firmware hosts around the same clock implementation:
 
 Choose one host for a device. Switching hosts requires a complete USB install.
 
-## Choose A Hardware Build
-
-Each host has two developer build environments:
-
-- **Full** uses the full shelf-light wiring map and defaults to seven LEDs per
-  segment.
-- **Test** uses the smaller development-clock wiring map and defaults to four
-  LEDs per segment.
-
 The wiring map matters in addition to the LED count. ShelfClock supports one
 through ten LEDs per segment, but changing only the count does not change the
 physical shelf-light mapping.
@@ -38,9 +29,7 @@ identify the finished device simply as **ShelfClock**.
 | Command | Firmware host | Hardware environment | Files created |
 | --- | --- | --- | --- |
 | `Build-Stand-alone.cmd` | Stand-alone | Full | `ShelfClock-Full-Firmware.bin`, `ShelfClock-OTA-Update.bin` |
-| `Build-Stand-alone-Test.cmd` | Stand-alone | Test | `ShelfClock-Full-Firmware.bin`, `ShelfClock-OTA-Update.bin` |
 | `Build-ESPHome.cmd` | ESPHome | Full | `ShelfClock-ESPHome-Full-Firmware.bin`, `ShelfClock-OTA-ESPHome.bin` |
-| `Build-ESPHome-Test.cmd` | ESPHome | Test | `ShelfClock-ESPHome-Full-Firmware.bin`, `ShelfClock-OTA-ESPHome.bin` |
 
 All files are written to `Releases`. Full and Test commands for the same host
 use the same public filenames, so the most recently built environment replaces
@@ -85,7 +74,6 @@ Developers can compile a Stand-alone application without packaging:
 
 ```text
 platformio run -e espwroom32
-platformio run -e espwroom32_test
 ```
 
 The resulting application is
@@ -111,9 +99,7 @@ PlatformIO geometry and feature defaults are in
 `platformio.ini`. ESPHome uses the `leds_per_segment` and `test_clock`
 substitutions in its YAML files.
 
-Preserve the intentional scheduler sentinels `99` and `9999`, and keep the
-distinct `FAKE_LEDs_C_VERT` and `FAKE_LEDs_C_VERT2` mappings when creating
-hardware variants.
+
 
 ## Shared Implementation
 
