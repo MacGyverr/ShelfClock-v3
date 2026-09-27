@@ -7,7 +7,7 @@ device with native Home Assistant controls. Both targets compile the same
 ShelfClock runtime and use the same LittleFS webpages, songs, schedules, and
 settings.
 
-The current firmware is version `3.0.0-alpha`. Both targets have been compiled
+The current firmware is version `3.0.2`. Both targets have been compiled
 and hardware-tested. The standalone firmware has also received repeated
 regression testing throughout the 3.x refactor. The majority of the clock was 
 once wrtten by a human, this refactor to add ESPHome options was done entirely 
