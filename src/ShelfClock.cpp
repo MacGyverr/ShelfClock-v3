@@ -9,6 +9,71 @@
 using shelfclock::scheduleTimeMatches;
 #include <vector>
 #include <FastLED.h>
+#if defined(FASTLED_ESP32_USE_CLOCKLESS_SPI)
+#include <fl/unique_ptr.h>
+#include <pixel_iterator.h>
+#include <platforms/esp/32/spi_ws2812/strip_spi.h>
+
+// FastLED 3.10.3's ESP32 SPI controller leaves each DMA transfer running after
+// show() returns. This controller uses the same conversion path but waits for
+// the complete frame, preventing the SPI pixel buffer from changing in flight.
+template <int DATA_PIN, EOrder RGB_ORDER>
+class ShelfClockSynchronousSpiController : public CPixelLEDController<RGB_ORDER> {
+ public:
+  void init() override {}
+
+  uint16_t getMaxRefreshRate() const override { return 800; }
+
+ protected:
+  void showPixels(PixelController<RGB_ORDER> &pixels) override {
+    const auto rgbw = this->getRgbw();
+    const bool isRgbw = rgbw.active();
+    PixelIterator input = pixels.as_iterator(rgbw);
+
+    if (!strip_) {
+      strip_.reset(ISpiStripWs2812::Create(DATA_PIN, input.size(), isRgbw));
+    }
+
+    auto output = strip_->outputIterator();
+    if (isRgbw) {
+      uint8_t red;
+      uint8_t green;
+      uint8_t blue;
+      uint8_t white;
+      while (input.has(1)) {
+        input.loadAndScaleRGBW(&red, &green, &blue, &white);
+        output(red);
+        output(green);
+        output(blue);
+        output(white);
+        input.advanceData();
+        input.stepDithering();
+      }
+    } else {
+      uint8_t red;
+      uint8_t green;
+      uint8_t blue;
+      while (input.has(1)) {
+        input.loadAndScaleRGB(&red, &green, &blue);
+        output(red);
+        output(green);
+        output(blue);
+        input.advanceData();
+        input.stepDithering();
+      }
+    }
+    output.finish();
+    strip_->drawSync();
+    // The SPI backend does not add a WS2812 reset pulse after transmission.
+    // Continuous animations can otherwise start another frame before the
+    // strip has latched the previous one. FastLED's RMT path uses 280 us.
+    delayMicroseconds(300);
+  }
+
+ private:
+  fl::unique_ptr<ISpiStripWs2812> strip_;
+};
+#endif
 #include <WiFi.h>
 #include "WebServer.h"
 #include <HTTPClient.h>
@@ -136,7 +201,7 @@ using shelfclock::scheduleTimeMatches;
   int SOUNDDETECTOR_post_react = 0; // OLD SPIKE CONVERSION
   #endif
 
-String softwareVersion = "version-3.0.0-alpha";
+String softwareVersion = "version-3.0.2";
 const char* host = "shelfclock";
 const int   daylightOffset_sec = 3600;
 const char* ntpServer = "pool.ntp.org";
@@ -266,6 +331,7 @@ bool networkRecoveryRequested = false;
 unsigned long networkRecoveryAt = 0;
 bool firmwareUpdateSucceeded = false;
 bool firmwareUploadAccepted = false;
+bool firmwareUploadInProgress = false;
 bool firmwareRestartRequested = false;
 unsigned long firmwareRestartAt = 0;
 
@@ -1714,7 +1780,12 @@ static void setupClockBeforeHost() {
   #endif
 
   //setup LEDs
+#if defined(FASTLED_ESP32_USE_CLOCKLESS_SPI)
+  static ShelfClockSynchronousSpiController<LED_PIN, COLOR_ORDER> ledController;
+  FastLED.addLeds(&ledController, LEDs, NUM_LEDS).setCorrection(TypicalLEDStrip);
+#else
   FastLED.addLeds<LED_TYPE,LED_PIN,COLOR_ORDER>(LEDs,NUM_LEDS).setCorrection(TypicalLEDStrip);
+#endif
   FastLED.setBrightness(255);
   fill_solid(LEDs, NUM_LEDS, CRGB::Black);
   FastLED.show();
@@ -2397,7 +2468,11 @@ void shelfclock::runtime::serviceHosted() {
   if (firmwareRestartRequested && static_cast<long>(millis() - firmwareRestartAt) >= 0) {
     ESP.restart();
   }
-  serviceClock();
+  if (!firmwareUploadInProgress) {
+    serviceClock();
+  } else {
+    platformServices().cooperateDuringSetup();
+  }
 }
 
 void getsamplePhoto(){
@@ -4512,9 +4587,8 @@ int currentHour  = timeinfo.tm_hour;
     }
     colorWheelPositionTwo = colorWheelPositionTwo - 1; // SPEED OF 2nd COLOR WHEEL
     if (colorWheelPositionTwo < 0) {colorWheelPositionTwo = 255;} // RESET 2nd COLOR WHEEL 
-    if ((spotlightsColorSettings == 2 || spotlightsColorSettings == 3) && clockMode != 11){FastLED.show();}
     prevTime2 = currentMillis;
-  FastLED.show();		 
+    FastLED.show();
   }
  } else if (useSpotlights == 0) {  //or turn them all off
   for (int i=SEGMENTS_LEDS; i<NUM_LEDS; i++) {
@@ -6760,10 +6834,12 @@ void loadWebPageHandlers() {
     if (upload.status == UPLOAD_FILE_START) {
       const String filename = upload.filename;
       firmwareUpdateSucceeded = false;
+      firmwareUploadInProgress = true;
       firmwareUploadAccepted = filename == "firmware.bin" || filename.endsWith(".ota.bin") ||
                                filename.endsWith("-OTA-Update.bin") ||
                                filename.endsWith("-OTA-ESPHome.bin");
       if (!firmwareUploadAccepted) {
+        firmwareUploadInProgress = false;
         Serial.printf("Rejected non-OTA image: %s\n", filename.c_str());
         return;
       }
@@ -6772,13 +6848,21 @@ void loadWebPageHandlers() {
         firmwareUploadAccepted = false;
         Update.printError(Serial);
       }
-    } else if (upload.status == UPLOAD_FILE_WRITE && firmwareUploadAccepted) {
-      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-        firmwareUploadAccepted = false;
-        Update.printError(Serial);
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (firmwareUploadAccepted &&
+          Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+          firmwareUploadAccepted = false;
+          Update.printError(Serial);
       }
-    } else if (upload.status == UPLOAD_FILE_END && firmwareUploadAccepted) {
-      firmwareUpdateSucceeded = Update.end(true);
+      platformServices().cooperateDuringSetup();
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (firmwareUploadAccepted) {
+        firmwareUpdateSucceeded = Update.end(true);
+      } else {
+        Update.abort();
+        firmwareUpdateSucceeded = false;
+      }
+      firmwareUploadInProgress = false;
       if (firmwareUpdateSucceeded) {
         Serial.printf("Update Success: %u\n", upload.totalSize);
       } else {
@@ -6787,6 +6871,7 @@ void loadWebPageHandlers() {
     } else if (upload.status == UPLOAD_FILE_ABORTED) {
       Update.abort();
       firmwareUploadAccepted = false;
+      firmwareUploadInProgress = false;
       Serial.println("Firmware update aborted");
     }
   });
