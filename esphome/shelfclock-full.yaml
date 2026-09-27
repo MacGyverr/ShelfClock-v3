@@ -1,0 +1,10 @@
+# Full ShelfClock ESPHome firmware: seven LEDs per segment and full wiring map.
+substitutions:
+  device_name: shelfclock
+  friendly_name: ShelfClock
+  leds_per_segment: "7"
+  test_clock: "false"
+  configuration_file: shelfclock-full.yaml
+
+packages:
+  shelfclock: !include shelfclock-test.yaml

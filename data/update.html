@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShelfClock Firmware Update</title>
+  <link rel="stylesheet" href="./css/main.css">
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <ul>
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./settings.html">Settings</a></li>
+        <li><a href="./scheduler.html">Alarm Scheduler</a></li>
+        <li><a href="./network.html">Network &amp; Recovery</a></li>
+        <li><a href="./update.html" class="active">Update Firmware</a></li>
+        <li><a href="./debug.html">Debug Info</a></li>
+      </ul>
+    </div>
+  </nav>
+  <main class="container">
+    <h1>Update Firmware</h1>
+    <p>Select <strong>OTA-Update</strong> for standalone firmware or <strong>OTA-ESPHome</strong> for ESPHome.</p>
+    <p>Factory, complete-install, and filesystem images cannot be installed here.</p>
+    <form method="POST" action="/update" enctype="multipart/form-data">
+      <input type="file" name="firmware" accept=".bin" required>
+      <button type="submit">Install Update</button>
+    </form>
+  </main>
+</body>
+</html>

@@ -1,0 +1,248 @@
+# ShelfClock ESPHome test-environment firmware. Provision Wi-Fi after upload.
+substitutions:
+  device_name: shelfclock
+  friendly_name: ShelfClock
+  leds_per_segment: "4"
+  test_clock: "true"
+  configuration_file: shelfclock-test.yaml
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: 2026.9.0
+  compile_process_limit: 4
+  project:
+    name: macgyverr.shelfclock
+    version: 3.0.0-alpha
+  includes:
+    - ../src/ShelfClock.cpp
+    - ../include/ShelfClockConfig.h
+    - ../include/ShelfClockRuntime.h
+    - ../include/ShelfClick.h
+    - ../include/ShelfClockLedMaps.h
+    - ../lib/ShelfClockCore/src/shelfclock
+  build_flags:
+    - -D SHELFCLOCK_STANDALONE=false
+    - -D TEST_CLOCK=${test_clock}
+    - -D LEDS_PER_SEGMENT=${leds_per_segment}
+    - -D HAS_RTC=false
+    - -D FASTLED_ESP32_FLASH_LOCK=0
+    # IDF 5 RMT output can underrun while Wi-Fi interrupts are active.
+    - -D FASTLED_ESP32_USE_CLOCKLESS_SPI=1
+  libraries:
+    - bblanchon/ArduinoJson@6.21.6
+    - end2endzone/NonBlockingRTTTL@1.4.0
+    - fastled/FastLED@3.10.3
+    - MultiMap=https://github.com/RobTillaart/MultiMap.git#0.1.7
+    - kosme/arduinoFFT@1.6.2
+    - FS
+    - LittleFS
+    - Wire
+    - SPI
+    - WiFi
+    - WebServer
+    - HTTPClient
+    - Update
+
+esp32:
+  board: esp32dev
+  flash_size: 4MB
+  cpu_frequency: 240MHz
+  partitions: ../4M-default_nvs.csv
+  framework:
+    type: arduino
+    version: 3.3.11
+    advanced:
+      use_full_certificate_bundle: true
+      disable_vfs_support_dir: false
+      include_builtin_idf_components:
+        - driver
+        - esp_wifi
+
+logger:
+  baud_rate: 115200
+
+wifi:
+  ap:
+    ssid: ShelfClock Setup
+    ap_timeout: 30s
+
+# Keeps credentials out of the repository. ShelfClock releases port 80 while
+# disconnected so ESPHome can own it for fallback provisioning.
+improv_serial:
+
+captive_portal:
+  compression: gzip
+
+dashboard_import:
+  package_import_url: github://MacGyverr/ShelfClock-v3/esphome/${configuration_file}@main
+
+api:
+
+ota:
+  - platform: esphome
+
+time:
+  - platform: sntp
+    id: shelfclock_time
+    timezone: America/Los_Angeles
+
+sensor:
+  - platform: dht
+    pin: GPIO33
+    model: DHT11
+    temperature:
+      name: Indoor Temperature
+      id: shelfclock_temperature
+    humidity:
+      name: Indoor Humidity
+      id: shelfclock_humidity
+    update_interval: 10s
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [shelfclock]
+
+shelfclock:
+  id: shelfclock_runtime
+  time_id: shelfclock_time
+  temperature_sensor: shelfclock_temperature
+  humidity_sensor: shelfclock_humidity
+
+select:
+  - platform: template
+    name: Display Mode
+    options:
+      - Clock
+      - Countdown
+      - Temperature
+      - Scoreboard
+      - Stopwatch
+      - Lightshow
+      - Date
+      - Humidity
+      - Spectrum
+      - Display Off
+      - Scrolling
+    lambda: return std::string(id(shelfclock_runtime).mode_name());
+    set_action:
+      - lambda: id(shelfclock_runtime).select_mode(std::string(x.c_str()));
+    update_interval: 1s
+
+  - platform: template
+    name: Lightshow
+    options: [Chase, Twinkles, Rainbow, Matrix, Rain, Fire, Snake, Cylon]
+    lambda: return std::string(id(shelfclock_runtime).lightshow_name());
+    set_action:
+      - lambda: id(shelfclock_runtime).select_lightshow(std::string(x.c_str()));
+    update_interval: 1s
+
+  - platform: template
+    name: Spectrum
+    options:
+      - BM Up
+      - CM Out
+      - BL to TR
+      - TL to BR
+      - Vertical B
+      - TM Down
+      - CS In
+      - BR to TL
+      - TR to BL
+      - Horizontal L
+      - Vertical T
+      - Horizontal R
+      - Rainbow
+      - Outrun Peak
+      - Purple
+      - Center
+      - Changing
+      - Fireplace
+      - Waterfall
+      - Auto cycle
+    lambda: return std::string(id(shelfclock_runtime).spectrum_name());
+    set_action:
+      - lambda: id(shelfclock_runtime).select_spectrum(std::string(x.c_str()));
+    update_interval: 1s
+
+number:
+  - platform: template
+    name: Timer Duration
+    id: shelfclock_timer_seconds
+    unit_of_measurement: s
+    min_value: 1
+    max_value: 86400
+    step: 1
+    initial_value: 60
+    optimistic: true
+    restore_value: false
+    mode: box
+
+  - platform: template
+    name: Score Left
+    min_value: 0
+    max_value: 99
+    step: 1
+    lambda: return id(shelfclock_runtime).scoreboard_left();
+    set_action:
+      - lambda: id(shelfclock_runtime).set_scoreboard_left(static_cast<int>(x));
+    update_interval: 1s
+
+  - platform: template
+    name: Score Right
+    min_value: 0
+    max_value: 99
+    step: 1
+    lambda: return id(shelfclock_runtime).scoreboard_right();
+    set_action:
+      - lambda: id(shelfclock_runtime).set_scoreboard_right(static_cast<int>(x));
+    update_interval: 1s
+
+button:
+  - platform: template
+    name: Start Countdown
+    on_press:
+      - lambda: id(shelfclock_runtime).start_countdown(static_cast<int>(id(shelfclock_timer_seconds).state));
+  - platform: template
+    name: Start Stopwatch
+    on_press:
+      - lambda: id(shelfclock_runtime).start_stopwatch(static_cast<int>(id(shelfclock_timer_seconds).state));
+  - platform: template
+    name: Save Preset 1
+    on_press:
+      - lambda: id(shelfclock_runtime).save_preset(1);
+  - platform: template
+    name: Save Preset 2
+    on_press:
+      - lambda: id(shelfclock_runtime).save_preset(2);
+  - platform: template
+    name: Save Preset 3
+    on_press:
+      - lambda: id(shelfclock_runtime).save_preset(3);
+  - platform: template
+    name: Save Preset 4
+    on_press:
+      - lambda: id(shelfclock_runtime).save_preset(4);
+  - platform: template
+    name: Load Preset 1
+    on_press:
+      - lambda: id(shelfclock_runtime).load_preset(1);
+  - platform: template
+    name: Load Preset 2
+    on_press:
+      - lambda: id(shelfclock_runtime).load_preset(2);
+  - platform: template
+    name: Load Preset 3
+    on_press:
+      - lambda: id(shelfclock_runtime).load_preset(3);
+  - platform: template
+    name: Load Preset 4
+    on_press:
+      - lambda: id(shelfclock_runtime).load_preset(4);
+  - platform: template
+    name: Network Recovery
+    entity_category: config
+    on_press:
+      - lambda: id(shelfclock_runtime).start_network_recovery();

@@ -1,0 +1,7 @@
+{
+  "name": "ShelfClockCore",
+  "version": "0.1.0",
+  "description": "Shared ShelfClock implementation for standalone and ESPHome adapters",
+  "frameworks": "arduino",
+  "platforms": "espressif32"
+}

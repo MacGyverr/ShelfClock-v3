@@ -1,0 +1,115 @@
+#ifndef SHELF_CLOCK_CONFIG_H
+#define SHELF_CLOCK_CONFIG_H
+
+#ifndef FASTLED_ESP32_FLASH_LOCK
+#define FASTLED_ESP32_FLASH_LOCK 0
+#endif
+
+#ifndef SHELFCLOCK_STANDALONE
+#define SHELFCLOCK_STANDALONE true
+#endif
+
+#ifndef FASTLED_INTERNAL
+#define FASTLED_INTERNAL
+#endif
+
+#ifndef HAS_RTC
+#define HAS_RTC    true
+#endif
+
+#ifndef HAS_DHT
+#define HAS_DHT    true
+#endif
+
+#ifndef HAS_SOUNDDETECTOR
+#define HAS_SOUNDDETECTOR    true
+#endif
+
+#ifndef HAS_BUZZER
+#define HAS_BUZZER    true
+#endif
+
+#ifndef HAS_PHOTOSENSOR
+#define HAS_PHOTOSENSOR    true
+#endif
+
+#ifndef HAS_ONLINEWEATHER
+#define HAS_ONLINEWEATHER   true
+#endif
+
+#ifndef HAS_USWEATHER
+#define HAS_USWEATHER   true
+#endif
+
+#ifndef TEST_CLOCK
+#define TEST_CLOCK    true
+#endif
+
+#ifndef USE_LITTLEFS
+#define USE_LITTLEFS    true
+#endif
+
+#ifndef USE_SPIFFS
+#define USE_SPIFFS      false
+#endif
+
+#ifndef SETTINGS_BACKUP_RETAIN_COUNT
+#define SETTINGS_BACKUP_RETAIN_COUNT 32
+#endif
+
+#define LED_TYPE  WS2812B
+#define COLOR_ORDER GRB
+#define LED_PIN 16
+#define MILLI_AMPS 2400
+
+#define SEGMENTS_PER_NUMBER 7
+#define NUMBER_OF_DIGITS 7
+#define SPECTRUM_PIXELS 37
+
+#ifndef LEDS_PER_SEGMENT
+#if TEST_CLOCK
+#define LEDS_PER_SEGMENT  4
+#else
+#define LEDS_PER_SEGMENT  7
+#endif
+#endif
+
+#if LEDS_PER_SEGMENT < 1 || LEDS_PER_SEGMENT > 10
+#error "LEDS_PER_SEGMENT must be between 1 and 10"
+#endif
+
+#define LEDS_PER_DIGIT (LEDS_PER_SEGMENT * SEGMENTS_PER_NUMBER)
+#define FAKE_NUM_LEDS (NUMBER_OF_DIGITS * LEDS_PER_DIGIT)
+#define SEGMENTS_LEDS (SPECTRUM_PIXELS * LEDS_PER_SEGMENT)
+#define SPOT_LEDS (NUMBER_OF_DIGITS * 2)
+#define NUM_LEDS  (SEGMENTS_LEDS + SPOT_LEDS)
+
+#if HAS_DHT
+#define DHTTYPE DHT11
+#define DHT_PIN 33
+#endif
+
+#if HAS_SOUNDDETECTOR
+#define SOUNDDETECTOR_I2S_WS 23
+#define SOUNDDETECTOR_I2S_SD 32
+#define SOUNDDETECTOR_I2S_SCK 18
+#define SOUNDDETECTOR_I2S_PORT I2S_NUM_0
+#define SOUNDDETECTOR_SAMPLING_FREQ 8000
+#define SOUNDDETECTOR_BITS_PER_SAMPLE 16
+#define SOUNDDETECTOR_SAMPLES 128
+#define SOUNDDETECTOR_BANDS_WIDTH 8
+#define SOUNDDETECTOR_BANDS_HEIGHT (LEDS_PER_SEGMENT * 2)
+static const int ANALYZER_SIZE = SOUNDDETECTOR_BANDS_WIDTH * LEDS_PER_SEGMENT * 2;
+#endif
+
+#if HAS_BUZZER
+#define BUZZER_PIN 17
+#endif
+
+#if HAS_PHOTOSENSOR
+#define PHOTORESISTER_PIN 36
+#define PHOTO_SAMPLES 10
+#define PHOTO_SIZE 5
+#endif
+
+#endif

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShelfClock Network Recovery</title>
+  <link rel="stylesheet" href="./css/main.css">
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <ul>
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./settings.html">Settings</a></li>
+        <li><a href="./scheduler.html">Alarm Scheduler</a></li>
+        <li><a href="./network.html" class="active">Network &amp; Recovery</a></li>
+        <li><a href="./update.html">Update Firmware</a></li>
+        <li><a href="./debug.html">Debug Info</a></li>
+      </ul>
+    </div>
+  </nav>
+  <main class="container">
+    <h1>Network &amp; Recovery</h1>
+    <p>Restart ShelfClock in Wi-Fi setup mode. Saved clock settings, songs, and schedules are preserved.</p>
+    <button id="network-reset" type="button">Enter Wi-Fi Setup</button>
+    <p id="network-status" role="status"></p>
+  </main>
+  <script>
+    document.getElementById('network-reset').addEventListener('click', async () => {
+      if (!confirm('Disconnect from this network and restart in Wi-Fi setup mode?')) return;
+      const button = document.getElementById('network-reset');
+      const status = document.getElementById('network-status');
+      button.disabled = true;
+      status.textContent = 'Restarting. Join the ShelfClock setup network when it appears.';
+      try {
+        const response = await fetch('/network-reset', {method: 'POST'});
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      } catch (error) {
+        status.textContent = 'The clock disconnected. Join the ShelfClock setup network.';
+      }
+    });
+  </script>
+</body>
+</html>
