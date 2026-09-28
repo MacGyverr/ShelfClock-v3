@@ -201,7 +201,7 @@ class ShelfClockSynchronousSpiController : public CPixelLEDController<RGB_ORDER>
   int SOUNDDETECTOR_post_react = 0; // OLD SPIKE CONVERSION
   #endif
 
-String softwareVersion = "version-3.0.2";
+String softwareVersion = "version-3.0.3";
 const char* host = "shelfclock";
 const int   daylightOffset_sec = 3600;
 const char* ntpServer = "pool.ntp.org";
