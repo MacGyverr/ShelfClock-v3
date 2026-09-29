@@ -56,6 +56,8 @@ void blueRain();
 void Fire2021();
 void Snake();
 void Cylon();
+void Orbit();
+void FigureEight();
 CRGB colorWheel(int);
 CRGB colorWheel2(int);
 void updateMatrix();

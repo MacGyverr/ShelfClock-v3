@@ -13,7 +13,7 @@ esphome:
   compile_process_limit: 4
   project:
     name: macgyverr.shelfclock
-    version: 3.0.3
+    version: 3.0.4
   includes:
     - ../src/ShelfClock.cpp
     - ../include/ShelfClockConfig.h
@@ -135,7 +135,7 @@ select:
 
   - platform: template
     name: Lightshow
-    options: [Chase, Twinkles, Rainbow, Matrix, Rain, Fire, Snake, Cylon]
+    options: [Chase, Twinkles, Rainbow, Matrix, Rain, Fire, Snake, Cylon, Orbit, Figure-eight]
     lambda: return std::string(id(shelfclock_runtime).lightshow_name());
     set_action:
       - lambda: id(shelfclock_runtime).select_lightshow(std::string(x.c_str()));

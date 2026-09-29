@@ -16,7 +16,8 @@ static const char *const MODE_NAMES[] = {
     "Clock", "Countdown", "Temperature", "Scoreboard", "Stopwatch", "Lightshow",
     nullptr, "Date", "Humidity", "Spectrum", "Display Off", "Scrolling"};
 static const char *const LIGHTSHOW_NAMES[] = {
-    "Chase", "Twinkles", "Rainbow", "Matrix", "Rain", "Fire", "Snake", "Cylon"};
+    "Chase", "Twinkles", "Rainbow", "Matrix", "Rain", "Fire", "Snake", "Cylon",
+    "Orbit", "Figure-eight"};
 static const char *const SPECTRUM_NAMES[] = {
     "BM Up",       "CM Out",       "BL to TR",   "TL to BR",    "Vertical B",
     "TM Down",     "CS In",        "BR to TL",   "TR to BL",    "Horizontal L",

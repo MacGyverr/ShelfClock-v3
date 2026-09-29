@@ -201,7 +201,7 @@ class ShelfClockSynchronousSpiController : public CPixelLEDController<RGB_ORDER>
   int SOUNDDETECTOR_post_react = 0; // OLD SPIKE CONVERSION
   #endif
 
-String softwareVersion = "version-3.0.3";
+String softwareVersion = "version-3.0.4";
 const char* host = "shelfclock";
 const int   daylightOffset_sec = 3600;
 const char* ntpServer = "pool.ntp.org";
@@ -410,6 +410,13 @@ struct ChaseRuntimeState {
   int mapping = 0;
 };
 ChaseRuntimeState chaseState;
+struct SegmentPathRuntimeState {
+  bool active = false;
+  uint32_t startedAt = 0;
+  uint32_t lastFrameAt = 0;
+  uint32_t frame = 0;
+};
+SegmentPathRuntimeState segmentPathState;
 int observedClockMode = -1;
 int observedLightshowMode = -1;
 struct TimerEndRuntimeState {
@@ -2286,6 +2293,7 @@ void shelfclock::runtime::serviceClock() {
   cancelScrollIfInterrupted();
   if (clockMode != observedClockMode || lightshowMode != observedLightshowMode) {
     chaseState.active = false;
+    segmentPathState.active = false;
     observedClockMode = clockMode;
     observedLightshowMode = lightshowMode;
   }
@@ -3168,6 +3176,8 @@ void displayRealtimeMode(){   //main RealtimeModes function, always is running
   if ( (suspendType == 0 || isAsleep == 0) && clockMode == 5 && lightshowMode == 5) {EVERY_N_MILLISECONDS(60) {Fire2021();FastLED.show();}}
   if ( (suspendType == 0 || isAsleep == 0) && clockMode == 5 && lightshowMode == 6) {EVERY_N_MILLISECONDS(getSlower) {Snake();FastLED.show();}}
   if ( (suspendType == 0 || isAsleep == 0) && clockMode == 5 && lightshowMode == 7) {EVERY_N_MILLISECONDS(150) {Cylon(); FastLED.show();}}
+  if ( (suspendType == 0 || isAsleep == 0) && clockMode == 5 && lightshowMode == 8) {Orbit();}
+  if ( (suspendType == 0 || isAsleep == 0) && clockMode == 5 && lightshowMode == 9) {FigureEight();}
 }//end of RealtimeModes
 
 
@@ -4759,6 +4769,94 @@ void Chase() {   //lightshow chase mode
     chaseState.position--;
   }
 } //end of chase
+
+static void setDigitSegment(byte digitColumn, byte segmentIndex, const CRGB &color) {
+  const int startIndex = digitColumn * LEDS_PER_DIGIT + segmentIndex * LEDS_PER_SEGMENT;
+  for (byte led = 0; led < LEDS_PER_SEGMENT; led++) {
+    LEDs[FAKE_LEDs[startIndex + led]] = color;
+  }
+}
+
+static void clearAnimatedDigits() {
+  static const byte digitColumns[] = {6, 4, 2, 0};
+  for (byte digit = 0; digit < sizeof(digitColumns); digit++) {
+    for (byte segment = 0; segment < SEGMENTS_PER_NUMBER; segment++) {
+      setDigitSegment(digitColumns[digit], segment, CRGB::Black);
+    }
+  }
+}
+
+static CRGB segmentPathColor(uint32_t now) {
+  static const CRGB palette[] = {
+      CRGB::Red, CRGB::Orange, CRGB::Yellow, CRGB::Green,
+      CRGB::Cyan, CRGB::Blue, CRGB::Purple};
+  static const uint32_t transitionMs = 10000;
+  const uint32_t elapsed = now - segmentPathState.startedAt;
+  const byte colorIndex = (elapsed / transitionMs) % (sizeof(palette) / sizeof(palette[0]));
+  const byte nextColorIndex = (colorIndex + 1) % (sizeof(palette) / sizeof(palette[0]));
+  const uint8_t blendAmount = static_cast<uint8_t>(((elapsed % transitionMs) * 255UL) / transitionMs);
+  return blend(palette[colorIndex], palette[nextColorIndex], blendAmount);
+}
+
+static void beginSegmentPath(uint32_t now) {
+  segmentPathState.active = true;
+  segmentPathState.startedAt = now;
+  segmentPathState.lastFrameAt = now - 180;
+  segmentPathState.frame = 0;
+  allBlank();
+}
+
+static void renderSegmentPath(const byte *path, byte pathLength, bool pulseCenter) {
+  static const byte digitColumns[] = {6, 4, 2, 0};
+  static const uint16_t frameIntervalMs = 180;
+  const uint32_t now = millis();
+  if (!segmentPathState.active) {
+    beginSegmentPath(now);
+  }
+  if (static_cast<uint32_t>(now - segmentPathState.lastFrameAt) < frameIntervalMs) {
+    return;
+  }
+  segmentPathState.lastFrameAt = now;
+
+  clearAnimatedDigits();
+  const CRGB color = segmentPathColor(now);
+  for (byte digit = 0; digit < sizeof(digitColumns); digit++) {
+    const byte pathIndex = (segmentPathState.frame + digit) % pathLength;
+    setDigitSegment(digitColumns[digit], path[pathIndex], color);
+  }
+
+  if (pulseCenter) {
+    const byte pulsePhase = segmentPathState.frame % 18;
+    uint8_t pulseBrightness = 0;
+    if (pulsePhase == 0 || pulsePhase == 2) {
+      pulseBrightness = 96;
+    } else if (pulsePhase == 1) {
+      pulseBrightness = 255;
+    }
+    if (pulseBrightness > 0) {
+      CRGB pulseColor = color;
+      pulseColor.nscale8_video(pulseBrightness);
+      for (byte digit = 0; digit < sizeof(digitColumns); digit++) {
+        setDigitSegment(digitColumns[digit], 6, pulseColor);
+      }
+    }
+  }
+
+  FastLED.show();
+  segmentPathState.frame++;
+}
+
+void Orbit() {
+  // Top, upper-right, lower-right, bottom, lower-left, upper-left.
+  static const byte path[] = {4, 5, 0, 1, 2, 3};
+  renderSegmentPath(path, sizeof(path), false);
+}
+
+void FigureEight() {
+  // Trace the upper and lower loops, crossing through the center segment.
+  static const byte path[] = {4, 5, 6, 2, 1, 0, 6, 3};
+  renderSegmentPath(path, sizeof(path), false);
+}
 
 
  
