@@ -20,6 +20,11 @@ namespace standalone {
 
 StandaloneHostServices hostServices;
 
+#if SHELFCLOCK_ISOLATION
+static char isolationSsid[33] = "ShelfClock";
+static const char isolationPassword[] = "shelfclock";
+#endif
+
 #if HAS_RTC
 static RTC_DS3231 rtc;
 #endif
@@ -39,14 +44,34 @@ void StandaloneHostServices::configureNetworkTime(long gmtOffsetSeconds,
 }
 
 bool StandaloneHostServices::networkConnected() const {
+#if SHELFCLOCK_ISOLATION
+  const wifi_mode_t mode = WiFi.getMode();
+  return mode == WIFI_MODE_AP || mode == WIFI_MODE_APSTA;
+#else
   return WiFi.status() == WL_CONNECTED;
+#endif
 }
 
 void StandaloneHostServices::formatIpAddress(char *destination, size_t destinationSize) const {
   if (destinationSize == 0) {
     return;
   }
+#if SHELFCLOCK_ISOLATION
+  snprintf(destination, destinationSize, "%s", WiFi.softAPIP().toString().c_str());
+#else
   snprintf(destination, destinationSize, "%s", WiFi.localIP().toString().c_str());
+#endif
+}
+
+void StandaloneHostServices::formatNetworkName(char *destination, size_t destinationSize) const {
+  if (destinationSize == 0) {
+    return;
+  }
+#if SHELFCLOCK_ISOLATION
+  snprintf(destination, destinationSize, "%s", isolationSsid);
+#else
+  snprintf(destination, destinationSize, "%s", WiFi.SSID().c_str());
+#endif
 }
 
 bool StandaloneHostServices::beginRtc() {
@@ -110,6 +135,9 @@ runtime::EnvironmentReading StandaloneHostServices::readEnvironment() {
 void StandaloneHostServices::cooperateDuringSetup() {}
 
 void StandaloneHostServices::requestNetworkRecovery() {
+#if SHELFCLOCK_ISOLATION
+  ESP.restart();
+#else
   AutoConnectCredential credentials;
   station_config_t saved = {};
   while (credentials.entries() > 0 && credentials.load(static_cast<int8_t>(0), &saved)) {
@@ -122,9 +150,32 @@ void StandaloneHostServices::requestNetworkRecovery() {
   WiFi.disconnect(true, true);
   delay(100);
   ESP.restart();
+#endif
 }
 
 bool beginNetwork(AutoConnect &portal, const char *hostname, NetworkStatus &status) {
+#if SHELFCLOCK_ISOLATION
+  (void) portal;
+  (void) hostname;
+  const uint32_t suffix = static_cast<uint32_t>(ESP.getEfuseMac() & 0xFFFFFFULL);
+  snprintf(isolationSsid, sizeof(isolationSsid), "ShelfClock-%06X", suffix);
+  WiFi.mode(WIFI_AP);
+  const IPAddress isolationAddress(10, 10, 10, 10);
+  const IPAddress isolationSubnet(255, 255, 255, 0);
+  if (!WiFi.softAPConfig(isolationAddress, isolationAddress, isolationSubnet)) {
+    Serial.println("Could not configure the isolation access point address");
+    return false;
+  }
+  if (!WiFi.softAP(isolationSsid, isolationPassword)) {
+    return false;
+  }
+  status.startTime = millis();
+  status.lastRetryAttempt = millis();
+  status.retryCount = 0;
+  Serial.printf("Isolation access point: %s\n", isolationSsid);
+  Serial.printf("Isolation address: %s\n", WiFi.softAPIP().toString().c_str());
+  return true;
+#else
   AutoConnectConfig config;
   config.autoReconnect = true;
   config.portalTimeout = 20000;
@@ -142,10 +193,16 @@ bool beginNetwork(AutoConnect &portal, const char *hostname, NetworkStatus &stat
   status.lastRetryAttempt = millis();
   status.retryCount = 0;
   return true;
+#endif
 }
 
 void serviceNetwork(WebServer &server, AutoConnect &portal, NetworkStatus &status) {
   server.handleClient();
+#if SHELFCLOCK_ISOLATION
+  (void) portal;
+  (void) status;
+  return;
+#else
   portal.handleRequest();
 
   if (WiFi.status() != WL_CONNECTED) {
@@ -183,6 +240,7 @@ void serviceNetwork(WebServer &server, AutoConnect &portal, NetworkStatus &statu
   status.retryCount = 0;
   status.startTime = millis();
   status.lastRetryAttempt = millis();
+#endif
 }
 
 }  // namespace standalone

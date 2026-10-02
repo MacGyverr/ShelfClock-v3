@@ -187,6 +187,15 @@ void ShelfClockComponent::formatIpAddress(char *destination, size_t destination_
   }
 }
 
+void ShelfClockComponent::formatNetworkName(char *destination, size_t destination_size) const {
+  if (destination_size == 0) {
+    return;
+  }
+  char ssid[wifi::SSID_BUFFER_SIZE] = {};
+  snprintf(destination, destination_size, "%s",
+           wifi::global_wifi_component->wifi_ssid_to(ssid));
+}
+
 bool ShelfClockComponent::beginRtc() {
   return this->time_source_ != nullptr;
 }

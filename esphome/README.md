@@ -4,6 +4,10 @@ ShelfClock's ESPHome firmware runs the same clock implementation as the
 standalone PlatformIO firmware and adds ESPHome's native API, OTA system,
 provisioning, time source, and Home Assistant entities.
 
+The permanent-access-point Isolation build is Stand-alone only. It intentionally
+has no ESPHome configuration because its purpose is operation without a router
+or Home Assistant connection.
+
 ## Usable Configurations
 
 | YAML | Wiring map | Default LEDs per segment | Device name |

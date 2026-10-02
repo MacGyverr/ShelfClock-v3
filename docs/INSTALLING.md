@@ -18,6 +18,8 @@ segment.
 | --- | --- | --- |
 | `*-Full-Firmware.bin` | USB at flash offset `0x0` | Complete standalone installation; replaces the whole 4 MB flash |
 | `*-OTA-Update.bin` | ShelfClock Update Firmware page | Updates standalone firmware; preserves user data |
+| `*-Isolation-Full-Firmware.bin` | USB at flash offset `0x0` | Complete isolated standalone installation; replaces the whole 4 MB flash |
+| `*-Isolation-OTA-Update.bin` | ShelfClock Update Firmware page | Updates isolated standalone firmware; preserves user data |
 | `*-ESPHome-Full-Firmware.bin` | USB at flash offset `0x0` | Complete ESPHome installation; replaces the whole 4 MB flash |
 | `*-OTA-ESPHome.bin` | ESPHome OTA or ShelfClock Update Firmware page | Updates ESPHome firmware; preserves user data |
 
@@ -52,8 +54,18 @@ Provision with ESPHome Web's **Configure Wi-Fi** action or join the
 `ShelfClock Setup` fallback access point. The fallback captive portal starts
 when the clock cannot connect to saved Wi-Fi.
 
-Once connected, the clock shows its assigned IP address. Open that address to
-use the complete ShelfClock interface.
+### Standalone Isolation
+
+Join the permanent `ShelfClock-XXXXXX` access point using password
+`shelfclock`, then open `http://10.10.10.10`. The suffix is derived from the
+device, so nearby ShelfClocks have distinct names. This build does not join a
+router and therefore has no internet weather, NTP, ESPHome, or Home Assistant
+connection. It uses its DS3231 or manual time setting and remains directly
+reachable from a phone or computer connected to its access point.
+
+The normal Standalone and ESPHome builds show their assigned IP address after
+connecting. The Isolation build always uses `10.10.10.10`. Open the applicable
+address to use the complete ShelfClock interface.
 
 ## Updating Wirelessly
 
@@ -61,6 +73,7 @@ Open **Network & Recovery**, then **Update Firmware**, in the ShelfClock web
 interface. Upload only the OTA file matching the currently installed host:
 
 - Standalone: `*-OTA-Update.bin`
+- Standalone Isolation: `*-Isolation-OTA-Update.bin`
 - ESPHome: `*-OTA-ESPHome.bin`
 
 ESPHome firmware can also be updated through ESPHome Device Builder. OTA
@@ -96,6 +109,9 @@ select the desired ShelfClock controls to produce a single grouped panel.
 The ShelfClock **Network & Recovery** page can erase only saved Wi-Fi
 credentials and restart into setup mode. It preserves settings, schedules,
 songs, and other LittleFS data.
+
+The Isolation build has no router credentials or setup mode. Its recovery
+action simply restarts the permanent access point.
 
 If the application no longer boots, install the appropriate complete image by
 USB. A complete image is destructive to stored user data.

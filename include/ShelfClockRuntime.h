@@ -23,6 +23,7 @@ class HostServices {
                                     const char *server) = 0;
   virtual bool networkConnected() const = 0;
   virtual void formatIpAddress(char *destination, size_t destinationSize) const = 0;
+  virtual void formatNetworkName(char *destination, size_t destinationSize) const = 0;
   virtual bool beginRtc() = 0;
   virtual bool readRtc(struct tm &value) = 0;
   virtual bool rtcLostPower() = 0;

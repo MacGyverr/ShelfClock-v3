@@ -201,7 +201,7 @@ class ShelfClockSynchronousSpiController : public CPixelLEDController<RGB_ORDER>
   int SOUNDDETECTOR_post_react = 0; // OLD SPIKE CONVERSION
   #endif
 
-String softwareVersion = "version-3.0.4";
+String softwareVersion = "version-3.0.6";
 const char* host = "shelfclock";
 const int   daylightOffset_sec = 3600;
 const char* ntpServer = "pool.ntp.org";
@@ -326,6 +326,7 @@ WebServer server(80);
 AutoConnect      Portal(server);
 #endif
 bool hostedWebServerStarted = false;
+bool networkIdentityChecked = false;
 
 bool networkRecoveryRequested = false;
 unsigned long networkRecoveryAt = 0;
@@ -903,8 +904,20 @@ static bool enterDisplayMode(byte nextClockMode, int nextRealtimeMode, bool pers
   return persistentMode;
 }
 
+static void registerUserDisplayActivity(shelfclock::HomeCommandType commandType) {
+  if (commandType == shelfclock::HomeCommandType::DisplayOff ||
+      commandType == shelfclock::HomeCommandType::SavePreset) {
+    return;
+  }
+  sleepTimerCurrent = 0;
+  isAsleep = 0;
+}
+
 static void submitHomeCommand(const shelfclock::HomeCommand &command, bool &saveSettingsNow) {
   const shelfclock::HomeCommandResult result = shelfclock::applyHomeCommand(command);
+  if (result.accepted) {
+    registerUserDisplayActivity(command.type);
+  }
   saveSettingsNow |= result.saveSettingsNow;
 }
 
@@ -1952,6 +1965,7 @@ static void setupStandaloneHost() {
     delay(1000);
     }
 
+  #if !SHELFCLOCK_ISOLATION
   //display "dnS" while activating the mdns
   allBlank();
   displayNumber(69,6,CRGB::Orange);  // d
@@ -1972,56 +1986,78 @@ static void setupStandaloneHost() {
     }
   }
   Serial.println("mDNS responder started");
+  #else
+  Serial.println("Isolation build uses its permanent local access point");
+  #endif
 }
 #endif
 
+static void setFallbackTimeToLocalNoon() {
+  struct tm fallbackTime = {};
+  fallbackTime.tm_hour = 12;
+  fallbackTime.tm_min = 0;
+  fallbackTime.tm_sec = 0;
+  fallbackTime.tm_mday = 18;
+  fallbackTime.tm_mon = 4;
+  fallbackTime.tm_year = 125;
+  fallbackTime.tm_isdst = 0;
+
+  const long localOffset = gmtOffset_sec + (daylightOffset_sec * DSTime);
+  const time_t fallbackUtc = static_cast<time_t>(1747569600LL - localOffset);
+  struct timeval now = { .tv_sec = fallbackUtc };
+  settimeofday(&now, NULL);
+  fallbackTime.tm_isdst = configuredTimeIsDst();
+  timeinfo = fallbackTime;
+  fakeTime = 1;
+  Serial.println("Using temporary local time 12:00 until a real time source is available");
+}
+
 static void setupClockTime() {
-  //init and set the time of the internal RTC from NTP server
-  //display "ntP" while activating the ntp
   allBlank();
   displayNumber(79,6,CRGB::Blue);  // n
   displayNumber(85,4,CRGB::Blue);  // t
   displayNumber(49,2,CRGB::Blue);  // P
   FastLED.show();
   if (firstRun) {delay(500);}
-  Serial.println("set the time of the internal RTC from NTP server");
-  platformServices().configureNetworkTime(gmtOffset_sec, (daylightOffset_sec * DSTime), ntpServer);
-    if(!platformServices().readLocalTime(timeinfo)){ 
+
+  bool networkTimeAvailable = false;
+  #if !SHELFCLOCK_ISOLATION
+    Serial.println("set the time of the internal RTC from NTP server");
+    platformServices().configureNetworkTime(gmtOffset_sec, (daylightOffset_sec * DSTime), ntpServer);
+    networkTimeAvailable = platformServices().readLocalTime(timeinfo);
+    if (!networkTimeAvailable) {
       allBlank();
       displayNumber(38,6,CRGB::Blue);  // E
       displayNumber(83,4,CRGB::Blue);  // r
       displayNumber(83,2,CRGB::Blue); // r
       FastLED.show();
       delay(1000);
-      struct tm fallbackTime = {};
-      fallbackTime.tm_hour = 0;
-      fallbackTime.tm_min = 0;
-      fallbackTime.tm_sec = 0;
-      fallbackTime.tm_mday = 18;
-      fallbackTime.tm_mon = 4;
-      fallbackTime.tm_year = 125;
-      fallbackTime.tm_isdst = configuredTimeIsDst();
-      time_t t = mktime(&fallbackTime);
-      timeinfo = fallbackTime;
-      struct timeval now = { .tv_sec = t};
-      settimeofday(&now, NULL);
-      fakeTime = 1;
     }
+  #else
+    Serial.println("Isolation build skips NTP and uses the DS3231");
+  #endif
+
+  fakeTime = networkTimeAvailable ? 0 : 1;
+  if (!networkTimeAvailable) {
+    setFallbackTimeToLocalNoon();
+  }
 
   #if HAS_RTC
-    //was the internal RTC time set by the NTP server?, if not set it via the RTC DS3231 stored time, will be wrong if daylight savings time is active
-    if(!platformServices().readLocalTime(timeinfo) || fakeTime == 1){ 
-      struct tm tm = {};
-      platformServices().readRtc(tm);
-      tm.tm_isdst = configuredTimeIsDst();
-      time_t t = mktime(&tm);
-      printf("NTP server not found, setting localtime from DS3231: %s", asctime(&tm));
-      struct timeval now1 = { .tv_sec = t };
-      settimeofday(&now1, NULL);
+    const bool rtcLostPower = platformServices().rtcLostPower();
+    if (!networkTimeAvailable && !rtcLostPower) {
+      struct tm rtcTime = {};
+      if (platformServices().readRtc(rtcTime)) {
+        rtcTime.tm_isdst = configuredTimeIsDst();
+        const time_t rtcEpoch = mktime(&rtcTime);
+        printf("NTP server not found, setting localtime from DS3231: %s", asctime(&rtcTime));
+        struct timeval now = { .tv_sec = rtcEpoch };
+        settimeofday(&now, NULL);
+        timeinfo = rtcTime;
+        fakeTime = 0;
+      }
     }
-    //did the DS3231 lose power (battery dead/changed), if so, set from time recieved from the NTP above
-    if (platformServices().rtcLostPower() && fakeTime == 0) {
-      //display "bAtt" while if batt dead/changed
+
+    if (rtcLostPower && networkTimeAvailable) {
       allBlank();
       displayNumber(67,6,CRGB::Red);  // b
       displayNumber(34,4,CRGB::Red);  // A
@@ -2030,15 +2066,13 @@ static void setupClockTime() {
       FastLED.show();
       if (firstRun) {delay(1000);}
       Serial.println("DS3231's RTC lost power, setting the time via NTP!");
-      if(!platformServices().readLocalTime(timeinfo)){Serial.println("Error, no NTP Server found!");}
       platformServices().writeRtc(timeinfo);
     }
   #endif
 
   Serial.println("print time");
-  printLocalTime(); 
+  printLocalTime();
 
-  //create something to know if now is not then
   previousTimeMin = timeinfo.tm_min;
   previousTimeHour = timeinfo.tm_hour;
   previousTimeDay = timeinfo.tm_mday;
@@ -2091,7 +2125,7 @@ static void setupClockAfterHost() {
     }
     server.send(404, "text/plain", "Not found");
   };
-  #if SHELFCLOCK_STANDALONE
+  #if SHELFCLOCK_STANDALONE && !SHELFCLOCK_ISOLATION
     Portal.onNotFound(notFoundHandler);
   #else
     server.onNotFound(notFoundHandler);
@@ -2101,6 +2135,10 @@ static void setupClockAfterHost() {
   server.serveStatic("/", FileFS, "/index.html");  //send default webpage from root request
   //server.serveStatic("/", FileFS, "/", "max-age=86400");
    server.serveStatic("/", FileFS, "/", "no-cache, max-age=0"); //for debugging
+  #if SHELFCLOCK_STANDALONE && SHELFCLOCK_ISOLATION
+    server.begin();
+    Serial.println("ShelfClock isolation web server started");
+  #endif
 
   //OTA firmware Upgrade Webpage Handlers
   Serial.println("OTA Available");
@@ -2200,6 +2238,9 @@ void shelfclock::runtime::setupHosted(HostServices &services) {
 shelfclock::HomeCommandResult shelfclock::runtime::applyHostedHomeCommand(
     const HomeCommand &command) {
   HomeCommandResult result = shelfclock::applyHomeCommand(command);
+  if (result.accepted) {
+    registerUserDisplayActivity(command.type);
+  }
   if (result.saveSettingsNow && saveclockSettings("generic")) {
     updateSettingsRequired = 0;
   }
@@ -2209,6 +2250,90 @@ shelfclock::HomeCommandResult shelfclock::runtime::applyHostedHomeCommand(
 void shelfclock::runtime::requestNetworkRecovery() {
   networkRecoveryRequested = true;
   networkRecoveryAt = millis() + 1000;
+}
+
+static bool saveNetworkIdentity(const char *networkName, const char *ipAddress) {
+  static const char *path = "/settings/network-state.json";
+  static const char *tempPath = "/settings/network-state.tmp";
+  StaticJsonDocument<256> identity;
+  identity["ssid"] = networkName;
+  identity["ip"] = ipAddress;
+
+  File file = FileFS.open(tempPath, FILE_WRITE);
+  if (!file) {
+    Serial.println("Could not create the network identity temp file");
+    return false;
+  }
+
+  const size_t expectedBytes = measureJson(identity);
+  const size_t writtenBytes = serializeJson(identity, file);
+  file.flush();
+  file.close();
+  if (writtenBytes != expectedBytes) {
+    Serial.println("Network identity write was incomplete");
+    FileFS.remove(tempPath);
+    return false;
+  }
+
+  if (FileFS.exists(path) && !FileFS.remove(path)) {
+    Serial.println("Could not replace the prior network identity");
+    FileFS.remove(tempPath);
+    return false;
+  }
+  if (!FileFS.rename(tempPath, path)) {
+    Serial.println("Could not activate the new network identity");
+    FileFS.remove(tempPath);
+    return false;
+  }
+  return true;
+}
+
+static void checkForChangedNetworkIdentity() {
+  if (networkIdentityChecked || !platformServices().networkConnected()) {
+    return;
+  }
+
+  char networkName[33] = {0};
+  char ipAddress[16] = {0};
+  platformServices().formatNetworkName(networkName, sizeof(networkName));
+  platformServices().formatIpAddress(ipAddress, sizeof(ipAddress));
+  if (networkName[0] == '\0' || ipAddress[0] == '\0' || strcmp(ipAddress, "0.0.0.0") == 0) {
+    return;
+  }
+
+  bool identityChanged = true;
+  File file = FileFS.open("/settings/network-state.json", "r");
+  if (file) {
+    StaticJsonDocument<256> identity;
+    const DeserializationError error = deserializeJson(identity, file);
+    file.close();
+    if (!error) {
+      const char *savedNetworkName = identity["ssid"] | "";
+      const char *savedIpAddress = identity["ip"] | "";
+      identityChanged = strcmp(savedNetworkName, networkName) != 0 ||
+                        strcmp(savedIpAddress, ipAddress) != 0;
+    }
+  }
+
+  networkIdentityChecked = true;
+  if (!identityChanged) {
+    return;
+  }
+
+  Serial.printf("Network changed; displaying %s on %s\n", ipAddress, networkName);
+  scrollOptions8 = true;
+  const shelfclock::HomeCommandResult result = shelfclock::applyHomeCommand(
+    shelfclock::HomeCommand(shelfclock::HomeCommandType::Scrolling)
+  );
+  if (!result.accepted || !saveclockSettings("generic")) {
+    Serial.println("Network change mode could not be saved; it will be retried after reboot");
+    return;
+  }
+
+  updateSettingsRequired = 0;
+  if (!saveNetworkIdentity(networkName, ipAddress)) {
+    Serial.println("Network identity could not be saved; it will be detected again after reboot");
+  }
 }
 
 void Task1code(void * parameter) {
@@ -2445,6 +2570,7 @@ void shelfclock::runtime::serviceClock() {
 void shelfclock::runtime::serviceStandalone() {
   #if SHELFCLOCK_STANDALONE
   shelfclock::standalone::serviceNetwork(server, Portal, standaloneNetworkStatus);
+  checkForChangedNetworkIdentity();
   if (networkRecoveryRequested && static_cast<long>(millis() - networkRecoveryAt) >= 0) {
     networkRecoveryRequested = false;
     platformServices().requestNetworkRecovery();
@@ -2464,6 +2590,7 @@ void shelfclock::runtime::serviceHosted() {
       Serial.println("ShelfClock web server started");
     }
     server.handleClient();
+    checkForChangedNetworkIdentity();
   } else if (hostedWebServerStarted) {
     server.stop();
     hostedWebServerStarted = false;

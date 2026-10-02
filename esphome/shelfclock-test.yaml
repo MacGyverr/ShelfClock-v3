@@ -13,7 +13,7 @@ esphome:
   compile_process_limit: 4
   project:
     name: macgyverr.shelfclock
-    version: 3.0.4
+    version: 3.0.6
   includes:
     - ../src/ShelfClock.cpp
     - ../include/ShelfClockConfig.h
@@ -25,7 +25,7 @@ esphome:
     - -D SHELFCLOCK_STANDALONE=false
     - -D TEST_CLOCK=${test_clock}
     - -D LEDS_PER_SEGMENT=${leds_per_segment}
-    - -D HAS_RTC=false
+    #- -D HAS_RTC=flase
     - -D FASTLED_ESP32_FLASH_LOCK=0
     # IDF 5 RMT output can underrun while Wi-Fi interrupts are active.
     - -D FASTLED_ESP32_USE_CLOCKLESS_SPI=1

@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('espwroom32', 'espwroom32_test')]
+    [ValidateSet('espwroom32', 'espwroom32_test', 'espwroom32_isolation')]
     [string]$Environment,
     [Parameter(Mandatory = $true)]
     [ValidateSet('Standalone', 'ESPHome')]
@@ -16,7 +16,15 @@ $platformioEsptool = Join-Path $env:USERPROFILE '.platformio\packages\tool-espto
 $esphomePython = Join-Path $root '.tools\esphome\Scripts\python.exe'
 $mkLittleFs = Join-Path $env:USERPROFILE '.platformio\packages\tool-mklittlefs\mklittlefs.exe'
 $bootApp = Join-Path $env:USERPROFILE '.platformio\packages\framework-arduinoespressif32\tools\partitions\boot_app0.bin'
-$variant = if ($Environment -eq 'espwroom32_test') { 'test' } else { 'full' }
+$variant = switch ($Environment) {
+    'espwroom32_test' { 'test' }
+    'espwroom32_isolation' { 'isolation' }
+    default { 'full' }
+}
+
+if ($Target -eq 'ESPHome' -and $Environment -eq 'espwroom32_isolation') {
+    throw 'The isolation environment is available only for Stand-alone firmware.'
+}
 
 function Assert-File([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
@@ -99,8 +107,18 @@ try {
             Assert-File $artifact
         }
 
-        $standaloneFull = Join-Path $releaseDirectory 'ShelfClock-Full-Firmware.bin'
-        $standaloneUpdate = Join-Path $releaseDirectory 'ShelfClock-OTA-Update.bin'
+        $standaloneFullName = if ($variant -eq 'isolation') {
+            'ShelfClock-Isolation-Full-Firmware.bin'
+        } else {
+            'ShelfClock-Full-Firmware.bin'
+        }
+        $standaloneUpdateName = if ($variant -eq 'isolation') {
+            'ShelfClock-Isolation-OTA-Update.bin'
+        } else {
+            'ShelfClock-OTA-Update.bin'
+        }
+        $standaloneFull = Join-Path $releaseDirectory $standaloneFullName
+        $standaloneUpdate = Join-Path $releaseDirectory $standaloneUpdateName
         Invoke-EsptoolMerge $standaloneFull @(
             '0x1000', $bootloader,
             '0x8000', $partitions,

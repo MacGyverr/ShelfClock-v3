@@ -1,6 +1,6 @@
 # Building ShelfClock
 
-The repository provides four Windows build commands. Run them from the project
+The repository provides five Windows build commands. Run them from the project
 root. They compile and package release files but never upload anything to a
 clock.
 
@@ -15,6 +15,11 @@ ShelfClock has two firmware hosts around the same clock implementation:
   ShelfClock interface.
 
 Choose one host for a device. Switching hosts requires a complete USB install.
+The Stand-alone host also has an **Isolation** build that creates a permanent
+local access point and never joins a router. It intentionally has no ESPHome
+counterpart because ESPHome and Home Assistant require network connectivity.
+Its access point is `ShelfClock-XXXXXX`, its password is `shelfclock`, and the
+local interface has the fixed address `http://10.10.10.10`.
 
 ## Choose A Hardware Build
 
@@ -39,13 +44,15 @@ identify the finished device simply as **ShelfClock**.
 | --- | --- | --- | --- |
 | `Build-Stand-alone.cmd` | Stand-alone | Full | `ShelfClock-Full-Firmware.bin`, `ShelfClock-OTA-Update.bin` |
 | `Build-Stand-alone-Test.cmd` | Stand-alone | Test | `ShelfClock-Full-Firmware.bin`, `ShelfClock-OTA-Update.bin` |
+| `Build-Stand-alone-Isolation.cmd` | Stand-alone | Full, isolated network | `ShelfClock-Isolation-Full-Firmware.bin`, `ShelfClock-Isolation-OTA-Update.bin` |
 | `Build-ESPHome.cmd` | ESPHome | Full | `ShelfClock-ESPHome-Full-Firmware.bin`, `ShelfClock-OTA-ESPHome.bin` |
 | `Build-ESPHome-Test.cmd` | ESPHome | Test | `ShelfClock-ESPHome-Full-Firmware.bin`, `ShelfClock-OTA-ESPHome.bin` |
 
 All files are written to `Releases`. Full and Test commands for the same host
 use the same public filenames, so the most recently built environment replaces
 that host's previous two files. The console states which environment produced
-them.
+them. Isolation uses unique filenames and does not replace the normal
+Stand-alone pair.
 
 Each command rebuilds the cleaned LittleFS content and excludes the deliberately
 invalid RTTTL parser fixture.
@@ -56,6 +63,8 @@ invalid RTTTL parser fixture.
 | --- | --- |
 | `ShelfClock-Full-Firmware.bin` | Complete new Stand-alone installation |
 | `ShelfClock-OTA-Update.bin` | Later Stand-alone firmware update |
+| `ShelfClock-Isolation-Full-Firmware.bin` | Complete new isolated Stand-alone installation |
+| `ShelfClock-Isolation-OTA-Update.bin` | Later isolated Stand-alone firmware update |
 | `ShelfClock-ESPHome-Full-Firmware.bin` | Complete new ESPHome installation |
 | `ShelfClock-OTA-ESPHome.bin` | Later ESPHome firmware update |
 
@@ -86,6 +95,7 @@ Developers can compile a Stand-alone application without packaging:
 ```text
 platformio run -e espwroom32
 platformio run -e espwroom32_test
+platformio run -e espwroom32_isolation
 ```
 
 The resulting application is

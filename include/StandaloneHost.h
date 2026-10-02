@@ -28,6 +28,7 @@ class StandaloneHostServices final : public runtime::HostServices {
                             const char *server) override;
   bool networkConnected() const override;
   void formatIpAddress(char *destination, size_t destinationSize) const override;
+  void formatNetworkName(char *destination, size_t destinationSize) const override;
   bool beginRtc() override;
   bool readRtc(struct tm &value) override;
   bool rtcLostPower() override;

@@ -9,6 +9,14 @@
 #define SHELFCLOCK_STANDALONE true
 #endif
 
+#ifndef SHELFCLOCK_ISOLATION
+#define SHELFCLOCK_ISOLATION false
+#endif
+
+#if SHELFCLOCK_ISOLATION && !SHELFCLOCK_STANDALONE
+#error "SHELFCLOCK_ISOLATION requires the standalone firmware host"
+#endif
+
 #ifndef FASTLED_INTERNAL
 #define FASTLED_INTERNAL
 #endif
