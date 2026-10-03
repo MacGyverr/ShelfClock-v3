@@ -1,4 +1,4 @@
-# ShelfClock
+# ShelfClock Firmware v3
 
 ShelfClock is an ESP32-powered seven-segment shelf display with clock, timer,
 scheduler, lighting, music, sensor, weather, and audio-spectrum modes. Version
@@ -6,8 +6,15 @@ scheduler, lighting, music, sensor, weather, and audio-spectrum modes. Version
 device with native Home Assistant controls. Both targets compile the same
 ShelfClock runtime and use the same LittleFS webpages, songs, schedules, and
 settings.
+3D printable files and instructions are available here:
+https://www.thingiverse.com/thing:5100866
+and here:
+https://www.printables.com/model/201156-shelf-clock
 
-The current firmware is version `3.0.0`. Both targets have been compile-validated,
+Examples of it in action on the original firmware version can be found here:
+https://www.youtube.com/watch?v=FABxgoq68Fs&list=PLkV6jp60iXvjmrqkrMTHSjlMShLybMzkE
+
+This current firmware is version `3.0.0`. This refactor was completely done by ChatGPT. Both targets have been compile-validated,
 and their shared runtime has been hardware-tested. The standalone firmware has also received repeated
 regression testing throughout the 3.x refactor.
 
