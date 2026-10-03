@@ -1,0 +1,17 @@
+{
+  "name": "ShelfClock Standalone",
+  "version": "3.0.0",
+  "new_install_prompt_erase": false,
+  "new_install_improv_wait_time": 0,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        {
+          "path": "https://github.com/MacGyverr/ShelfClock-v3/releases/latest/download/ShelfClock-Full-Firmware.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}

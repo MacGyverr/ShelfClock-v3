@@ -1,0 +1,11 @@
+sensor:
+  - platform: dht
+    pin: GPIO33
+    model: DHT11
+    temperature:
+      name: Indoor Temperature
+      id: shelfclock_temperature
+    humidity:
+      name: Indoor Humidity
+      id: shelfclock_humidity
+    update_interval: 10s

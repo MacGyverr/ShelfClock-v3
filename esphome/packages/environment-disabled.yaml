@@ -1,0 +1,11 @@
+sensor:
+  - platform: template
+    name: Indoor Temperature Disabled
+    id: shelfclock_temperature
+    internal: true
+    update_interval: never
+  - platform: template
+    name: Indoor Humidity Disabled
+    id: shelfclock_humidity
+    internal: true
+    update_interval: never

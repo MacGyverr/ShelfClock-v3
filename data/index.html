@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta http-equiv='cache-control' content='no-cache'>
+<meta http-equiv='expires' content='0'>
+<meta http-equiv='pragma' content='no-cache'>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="css/main.css">
+    <script type="text/javascript" src="js/api.js"></script>
+    <script type="text/javascript" src="js/settings-store.js"></script>
+    <script type="text/javascript" src="js/main.js"></script>
+    <title>Shelf Clock</title>
+</head>
+<body>
+    <nav>
+        <a href="./index.html">Shelf Clock</a>
+        <button title="Expand Navigation">
+            <span></span>
+        </button>
+        <div>
+            <ul>
+            <li><a href="./index.html" class="active">Home</a></li>
+            <li><a href="./settings.html">Settings</a></li>
+			<li><a href="./scheduler.html">Alarm Scheduler</a></li>
+            <li><a href="./network.html">Network &amp; Recovery</a></li>
+            <li><a href="./update.html">Update Firmware</a></li>
+            <li><a href="./debug.html">Debug Info</a></li>
+            </ul>
+        </div>   
+    </nav>
+
+    <form name="shelfclock-home">
+        <section>
+            <div class="button-wrapper blue">
+                <h3>Select Display Mode</h3>
+                <div>
+                    <input type="button" value="Clock" data-param="ClockMode">
+                    <input type="button" value="Date" data-param="DateMode">
+                    <input type="button" value="Temperature" data-param="TemperatureMode" id="NOTEMP5">
+                    <input type="button" value="Humidity" data-param="HumidityMode" id="NOTEMP6">
+                    <input type="button" value="Scrolling" data-param="ScrollingMode">
+                    <input type="button" value="Display Off" data-param="DisplayOffMode">
+                </div>
+            </div>
+        </section>
+        <section>
+            <div class="button-wrapper yellow">
+                <h3>Load Saved Preset</h3>
+                <div>
+                    <input type="button" value="Preset 1" data-param="loadPreset1">
+					<input type="button" value="Preset 2" data-param="loadPreset2">
+                    <input type="button" value="Preset 3" data-param="loadPreset3">
+					<input type="button" value="Preset 4" data-param="loadPreset4">
+                </div>
+            </div>
+        </section>
+        <section>
+            <div class="button-wrapper red">
+                <h3>Select Timer Mode</h3>
+                <div class="grid-3">
+                    <label>Hours</label>
+                    <label>Minutes</label>
+                    <label>Seconds</label>
+                    <input type="number" name="hours" step="1" pattern="\d+" min="0" value="0">
+                    <input type="number" name="minutes" step="1" pattern="\d+" min="0" max="59" value="0">
+                    <input type="number" name="seconds" step="1" pattern="\d+" min="0" max="59" value="0">
+                </div>
+                <div>
+                    <input type="button" value="Start Countdown" name="countdown">
+                    <input type="button" value="Start Stopwatch" name="stopwatch">
+                </div>
+            </div>
+        </section>
+        <section>
+            <div class="button-wrapper">
+              <h3>Scoreboard Mode</h3>
+              <div class="scoreboard">
+                <label>Left</label>
+                <label>Right</label>
+              
+                <input type="button" value="Up"   class="score-left"  name="upleft">
+                <input type="button" value="Up"   class="score-right" name="upright">
+              
+                <input type="number" value="0"    min="0" max="99"      name="left">
+                <input type="number" value="0"    min="0" max="99"      name="right">
+              
+                <input type="button" value="Down" class="score-left"  name="downleft">
+                <input type="button" value="Down" class="score-right" name="downright">
+              </div>
+            </div>
+          </section>
+        <section>
+            <div class="button-wrapper orange">
+                <h3>Lightshow Modes</h3>
+                <div>
+                    <input type="button" value="Chase" data-lightshow="0">
+                    <input type="button" value="Twinkles" data-lightshow="1">
+                    <input type="button" value="Rainbow" data-lightshow="2">
+                    <input type="button" value="Matrix" data-lightshow="3">
+                    <input type="button" value="Rain" data-lightshow="4">
+                    <input type="button" value="Fire" data-lightshow="5">
+                    <input type="button" value="Snake" data-lightshow="6">
+                    <input type="button" value="Cylon" data-lightshow="7">
+                    <input type="button" value="Orbit" data-lightshow="8">
+                    <input type="button" value="Figure-eight" data-lightshow="9">
+                </div>
+            </div>
+        </section>
+        <section>
+            <div class="button-wrapper purple" id="FFT">
+                <h3>Sound Meter</h3>
+                <div>
+                    <input type="button" value="BM Up" data-showspectrum="0">
+					<input type="button" value="TM Down" data-showspectrum="5">
+                    <input type="button" value="CM Out" data-showspectrum="1">
+					<input type="button" value="CS In" data-showspectrum="6">
+                    <input type="button" value="TL to BR" data-showspectrum="3">
+					<input type="button" value="TR to BL" data-showspectrum="8">
+                    <input type="button" value="BL to TR" data-showspectrum="2">
+					<input type="button" value="BR to TL" data-showspectrum="7">
+                    <input type="button" value="Vertical B" data-showspectrum="4">
+					<input type="button" value="Vertical T" data-showspectrum="10">
+                    <input type="button" value="Horizontal L" data-showspectrum="9">
+					<input type="button" value="Horizontal R" data-showspectrum="11">
+                </div>
+				<h3>Spectrum Analyzer</h3>
+                <div>
+					<input type="button" value="Rainbow" data-showspectrum="12">
+                    <input type="button" value="Outrun Peak" data-showspectrum="13">
+					<input type="button" value="Purple" data-showspectrum="14">
+                    <input type="button" value="Center" data-showspectrum="15">
+					<input type="button" value="Changing" data-showspectrum="16">
+                    <input type="button" value="Fireplace" data-showspectrum="17">
+                    <input type="button" value="Waterfall" data-showspectrum="18">
+					<input type="button" value="Auto cycle" data-showspectrum="19">
+                </div>
+            </div>
+        </section>
+    </form>
+</body>
+</html>

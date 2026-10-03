@@ -1,0 +1,34 @@
+# Compile/link only. Dependency entry points are referenced but never executed.
+packages:
+  core: !include core-probe.yaml
+
+esphome:
+  name: shelfclock-dependency-probe
+  build_flags:
+    - -D SHELFCLOCK_PROBE_GROUP=23
+    - -D TEST_CLOCK=true
+    - -D FASTLED_ESP32_FLASH_LOCK=0
+  libraries:
+    - bblanchon/ArduinoJson@6.21.6
+    - end2endzone/NonBlockingRTTTL@1.4.0
+    - fastled/FastLED@3.10.3
+    - MultiMap=https://github.com/RobTillaart/MultiMap.git#0.1.7
+    - kosme/arduinoFFT@1.6.2
+    - FS
+    - LittleFS
+    - Wire
+    - SPI
+    - WiFi
+    - WebServer
+    - HTTPClient
+    - ESPmDNS
+    - Update
+
+esp32:
+  framework:
+    advanced:
+      use_full_certificate_bundle: true
+      disable_vfs_support_dir: false
+      include_builtin_idf_components:
+        - driver
+        - esp_wifi

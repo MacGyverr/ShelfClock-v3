@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install ShelfClock</title>
+  <link rel="icon" href="../data/favicon.ico">
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, sans-serif;
+      background: #101418;
+      color: #f5f7f8;
+      --esp-tools-button-color: #d43d32;
+      --esp-tools-button-text-color: #ffffff;
+      --esp-tools-button-border-radius: 6px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; }
+    main { width: min(760px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0; }
+    header { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; }
+    header img { width: 56px; height: 56px; image-rendering: pixelated; }
+    h1, h2 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 20px; }
+    p { color: #bac4ca; line-height: 1.55; }
+    .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    article { border: 1px solid #39434a; border-radius: 8px; padding: 20px; background: #171d22; }
+    article p { min-height: 72px; }
+    button { border: 0; padding: 11px 16px; font: inherit; font-weight: 650; cursor: pointer; }
+    .notice { border-left: 4px solid #e2ae45; padding: 10px 14px; background: #252117; }
+    .error { display: none; color: #ffd7d3; border-left-color: #d43d32; background: #2b1818; }
+    @media (max-width: 520px) {
+      main { padding: 28px 0; }
+      article p { min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <img src="../data/favicon.ico" alt="">
+      <div>
+        <h1>ShelfClock Installer</h1>
+        <p>Complete USB installation for ESP32 ShelfClock hardware.</p>
+      </div>
+    </header>
+
+    <p id="local-warning" class="notice error">
+      This installer must be opened from an HTTPS website or localhost. Opening the HTML file directly cannot download its manifests.
+    </p>
+    <p class="notice">A complete install replaces firmware, filesystem, settings, schedules, songs, and saved Wi-Fi data.</p>
+
+    <section class="options" aria-label="Firmware choices">
+      <article>
+        <h2>Standalone</h2>
+        <p>ShelfClock manages Wi-Fi, its local interface, RTC, sensors, schedules, and browser-based updates.</p>
+        <esp-web-install-button manifest="manifest-standalone.json">
+          <button slot="activate" type="button">Install Standalone</button>
+          <span slot="unsupported">Use Chrome or Edge on a computer with Web Serial support.</span>
+          <span slot="not-allowed">USB installation requires HTTPS or localhost.</span>
+        </esp-web-install-button>
+      </article>
+
+      <article>
+        <h2>ESPHome</h2>
+        <p>Adds ESPHome provisioning, native Home Assistant entities, and ESPHome OTA while retaining ShelfClock's interface.</p>
+        <esp-web-install-button manifest="manifest-esphome.json">
+          <button slot="activate" type="button">Install ESPHome</button>
+          <span slot="unsupported">Use Chrome or Edge on a computer with Web Serial support.</span>
+          <span slot="not-allowed">USB installation requires HTTPS or localhost.</span>
+        </esp-web-install-button>
+      </article>
+    </section>
+  </main>
+  <script>
+    if (window.location.protocol === 'file:') {
+      document.getElementById('local-warning').style.display = 'block';
+    }
+  </script>
+</body>
+</html>
