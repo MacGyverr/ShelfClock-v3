@@ -14,7 +14,7 @@ https://www.printables.com/model/201156-shelf-clock
 Examples of it in action on the original firmware version can be found here:
 https://www.youtube.com/watch?v=FABxgoq68Fs&list=PLkV6jp60iXvjmrqkrMTHSjlMShLybMzkE
 
-This current firmware is version `3.0.0`. This refactor was completely done by ChatGPT. Both targets have been compile-validated,
+This current firmware is version `3.0.2`. This refactor was completely done by ChatGPT. Both targets have been compile-validated,
 and their shared runtime has been hardware-tested. The standalone firmware has also received repeated
 regression testing throughout the 3.x refactor.
 
@@ -79,6 +79,17 @@ The Standalone Isolation build instead creates a permanent
 weather, ESPHome, or Home Assistant connection; local controls, schedules,
 songs, the DS3231, and browser-based OTA remain available.
 
+Isolation keeps local wall time in both clocks. Use **Manually Set Date/Time**
+to copy the browser's local time to the ESP32 and DS3231. Timezone and DST
+settings are retained for network builds; they do not shift Isolation time.
+Daily maintenance leaves the DS3231 running independently and does not start NTP.
+
+In weather-enabled network builds, the rain forecast shelf-light mode uses
+blue for rain, white for snow, and purple for days with both. Brightness still
+represents precipitation probability: below 50% is off, and 50-100% increases
+brightness. Unknown precipitation types use blue. These colors are the default
+and require no additional setting.
+
 Until a valid network or RTC time becomes available, the clock uses a temporary
 local 12:00 display. Changing display mode wakes a display suspended by its
 silence timer and restarts that timer. When the saved network name or assigned
@@ -119,8 +130,10 @@ Each command reads the single environment selected by `default_envs`, prints
 the effective feature choices, and writes its two files under `Releases`.
 `SHELFCLOCK_ISOLATION=true` is accepted only by the Standalone build.
 `Upload-Full-Firmware-via-USB.cmd` can install the existing Standalone Full
-image after showing the available COM ports and confirming the destructive
-operation.
+image after checking for available COM ports and confirming the destructive
+operation. Its numbered menu contains only ports Windows currently exposes to
+serial applications; remembered but disconnected Device Manager entries are
+not selectable.
 
 See [Building ShelfClock](BUILDING.md) for requirements, output names, ordinary
 development builds, custom geometry, and why the two firmware hosts exist.

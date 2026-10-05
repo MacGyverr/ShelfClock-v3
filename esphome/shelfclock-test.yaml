@@ -27,7 +27,7 @@ esphome:
   compile_process_limit: 4
   project:
     name: macgyverr.shelfclock
-    version: 3.0.0
+    version: 3.0.2
   includes:
     - ../src/ShelfClock.cpp
     - ../include/ShelfClockConfig.h

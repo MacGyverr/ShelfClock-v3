@@ -5,6 +5,7 @@
 #include <AutoConnectCredential.h>
 
 #include <math.h>
+#include <stdlib.h>
 #include <time.h>
 
 #if HAS_RTC
@@ -40,7 +41,16 @@ bool StandaloneHostServices::readLocalTime(struct tm &value) {
 void StandaloneHostServices::configureNetworkTime(long gmtOffsetSeconds,
                                                   int daylightOffsetSeconds,
                                                   const char *server) {
+#if SHELFCLOCK_ISOLATION
+  (void)gmtOffsetSeconds;
+  (void)daylightOffsetSeconds;
+  (void)server;
+  // The offline ESP32 clock stores the same local wall time as the DS3231.
+  setenv("TZ", "UTC0", 1);
+  tzset();
+#else
   configTime(gmtOffsetSeconds, daylightOffsetSeconds, server);
+#endif
 }
 
 bool StandaloneHostServices::networkConnected() const {

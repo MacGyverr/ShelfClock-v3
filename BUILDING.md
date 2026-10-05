@@ -94,9 +94,18 @@ After building Standalone firmware, run:
 Upload-Full-Firmware-via-USB.cmd
 ```
 
-The uploader displays present devices from `Get-PnpDevice -Class Ports`,
-provides a numbered COM-port choice, and requires typing `ERASE` before
-writing `ShelfClock-Full-Firmware.bin` at flash offset `0x0`.
+The uploader runs `Get-PnpDevice -Class Ports` to show Windows device records,
+then uses the active serial-port list for its numbered choices. Enter only the
+bracketed menu number. Devices with `Unknown` status and `Present=False` are
+remembered entries and cannot be flashed until Windows exposes an active COM
+port. The uploader requires typing `ERASE` before writing
+`ShelfClock-Full-Firmware.bin` at flash offset `0x0`.
+
+An active port can also be supplied when launching the command:
+
+```powershell
+.\Upload-Full-Firmware-via-USB.cmd -Port COM8
+```
 
 The hosted [ShelfClock installer](esphome/installer.html) offers complete
 Standalone and ESPHome images through ESP Web Tools. It must be served from

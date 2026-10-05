@@ -24,6 +24,13 @@ Both complete images contain the boot components, partition table, application,
 and LittleFS content needed by the local interface. Do not upload a complete
 image through an OTA page.
 
+Version 3.0.2 adds precipitation colors to the rain forecast shelf-light mode:
+blue for rain, white for snow, and purple for days with both. Brightness still
+represents precipitation probability; unidentified precipitation stays blue.
+This requires weather enabled and network access, not an Isolation build.
+Existing installations can receive this change with the matching OTA image;
+no filesystem update or new setting is required.
+
 ## Complete USB Installation
 
 The hosted `esphome/installer.html` page offers both complete images through
@@ -32,8 +39,12 @@ from disk cannot fetch its manifests. The manifests download binaries attached
 to the latest GitHub release.
 
 Windows users can flash the existing Standalone complete image with
-`Upload-Full-Firmware-via-USB.cmd`. It displays connected COM devices,
-prompts for a numbered selection, and requires typing `ERASE`.
+`Upload-Full-Firmware-via-USB.cmd`. It displays the result of
+`Get-PnpDevice -Class Ports`, then offers only currently active serial ports as
+numbered choices. Enter the bracketed menu number, not the COM number or name.
+An `Unknown` device with `Present=False` is only a remembered Windows entry and
+cannot be opened by esptool. An active port can also be supplied with
+`-Port COM8`. The uploader requires typing `ERASE` before writing.
 
 A command-line installation can also use `esptool`:
 
@@ -67,6 +78,17 @@ device, so nearby ShelfClocks have distinct names. This build does not join a
 router and therefore has no internet weather, NTP, ESPHome, or Home Assistant
 connection. It uses its DS3231 or manual time setting and remains directly
 reachable from a phone or computer connected to its access point.
+
+Isolation stores local wall time in the ESP32 and DS3231. Use **Manually Set
+Date/Time** on the Settings page to set both from the browser's local clock.
+The saved timezone and DST controls apply to network builds and do not shift
+Isolation time. Daily maintenance does not reconfigure NTP or overwrite the
+DS3231.
+
+Version `3.0.1` fixes an Isolation timezone change at the daily rollover. An
+existing Isolation installation needs only its matching OTA image, followed by
+one manual date/time update to correct any time already shifted by the old
+firmware. A filesystem upload is not required for this fix.
 
 The normal Standalone and ESPHome builds show their assigned IP address after
 connecting. The Isolation build always uses `10.10.10.10`. Open the applicable

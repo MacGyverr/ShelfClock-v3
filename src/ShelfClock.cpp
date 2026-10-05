@@ -201,7 +201,7 @@ class ShelfClockSynchronousSpiController : public CPixelLEDController<RGB_ORDER>
   int SOUNDDETECTOR_post_react = 0; // OLD SPIKE CONVERSION
   #endif
 
-String softwareVersion = "version-3.0.0";
+String softwareVersion = "version-3.0.2";
 const char* host = "shelfclock";
 const int   daylightOffset_sec = 3600;
 const char* ntpServer = "pool.ntp.org";
@@ -279,6 +279,9 @@ int minutesUptime = 0;
   #endif
 #if HAS_USWEATHER
   int rainForecast[14] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Global array to store rain forecast data
+  enum PrecipitationType : uint8_t { PRECIP_UNKNOWN, PRECIP_RAIN, PRECIP_SNOW, PRECIP_MIXED };
+  uint8_t precipitationType[14] = {};
+  portMUX_TYPE rainForecastMux = portMUX_INITIALIZER_UNLOCKED;
   float noaaTemp = 0.0f;
   float noaaHumidity = 0.0f;
   float tideHeight[48];   // Stores hourly tide heights 
@@ -886,7 +889,11 @@ static bool songRequestIsComplete(uint32_t requestId) {
 #endif
 
 static int configuredTimeIsDst() {
+  #if SHELFCLOCK_ISOLATION
+  return 0;
+  #else
   return DSTime ? 1 : 0;
+  #endif
 }
 
 static bool enterDisplayMode(byte nextClockMode, int nextRealtimeMode, bool persistentMode, bool shouldBreakOut) {
@@ -1034,6 +1041,7 @@ static void markSettingChanged(int refreshClockMode) {
 }
 
 static void syncConfiguredTimeSetting() {
+  #if !SHELFCLOCK_ISOLATION
   platformServices().configureNetworkTime(gmtOffset_sec, (daylightOffset_sec * DSTime), ntpServer);
   bool localTimeOk = platformServices().readLocalTime(timeinfo);
   if(!localTimeOk){Serial.println("Error, no NTP Server found!");}
@@ -1041,6 +1049,9 @@ static void syncConfiguredTimeSetting() {
     if (localTimeOk) {
       platformServices().writeRtc(timeinfo);
     }
+  #endif
+  #else
+  Serial.println("Isolation keeps local wall time; timezone/DST settings saved for network builds");
   #endif
   markSettingChanged(0);
   printLocalTime();
@@ -2010,7 +2021,11 @@ static void setFallbackTimeToLocalNoon() {
   fallbackTime.tm_year = 125;
   fallbackTime.tm_isdst = 0;
 
+  #if SHELFCLOCK_ISOLATION
+  const long localOffset = 0;
+  #else
   const long localOffset = gmtOffset_sec + (daylightOffset_sec * DSTime);
+  #endif
   const time_t fallbackUtc = static_cast<time_t>(1747569600LL - localOffset);
   struct timeval now = { .tv_sec = fallbackUtc };
   settimeofday(&now, NULL);
@@ -2042,6 +2057,7 @@ static void setupClockTime() {
       delay(1000);
     }
   #else
+    platformServices().configureNetworkTime(0, 0, nullptr);
     Serial.println("Isolation build skips NTP and uses the DS3231");
   #endif
 
@@ -2500,12 +2516,14 @@ void shelfclock::runtime::serviceClock() {
     if (abs(currentTimeDay - previousTimeDay) >= 1) { 
         previousTimeDay = currentTimeDay; 
         randomDayPassed = 1; 
+        #if !SHELFCLOCK_ISOLATION
         platformServices().configureNetworkTime(gmtOffset_sec, (daylightOffset_sec * DSTime), ntpServer);
+        #endif
         #if HAS_USWEATHER
           if (spotlightsColorSettings == 5 ){ requestWeatherUpdate(WEATHER_UPDATE_RAIN); }
           if ((spotlightsColorSettings == 6) || (scrollOptions9 == 1 && clockMode == 11)){ requestWeatherUpdate(WEATHER_UPDATE_TIDES); }
         #endif
-        #if HAS_RTC
+        #if HAS_RTC && !SHELFCLOCK_ISOLATION
           platformServices().writeRtc(timeinfo);
         #endif
         daysUptime = daysUptime + 1;
@@ -4183,11 +4201,11 @@ void GetBrightnessLevel() {
       strftime(endDate, sizeof(endDate), "%Y-%m-%d", &eInfo);
     }
   
-    // build the URL
+    // build the URL (https://api.open-meteo.com/v1/forecast?latitude=47.070808&longitude=-122.804500&daily=precipitation_probability_max0)
     String apiUrl = String("https://api.open-meteo.com/v1/forecast")
                   + "?latitude="  + String(latitude, 9)
                   + "&longitude=" + String(longitude, 9)
-                  + "&daily=precipitation_probability_max"
+                  + "&daily=precipitation_probability_max,rain_sum,showers_sum,snowfall_sum"
                   + "&start_date=" + startDate
                   + "&&end_date="   + endDate
                   + "&timezone=auto";
@@ -4223,13 +4241,16 @@ void GetBrightnessLevel() {
   
     // extract probabilities
     JsonArray probs = doc["daily"]["precipitation_probability_max"];
-    if (probs.isNull()) {
-      Serial.println("Rain forecast JSON missing precipitation array, using cached values.");
+    JsonArray rain = doc["daily"]["rain_sum"];
+    JsonArray showers = doc["daily"]["showers_sum"];
+    JsonArray snow = doc["daily"]["snowfall_sum"];
+    if (probs.size() != 14 || rain.size() != 14 || showers.size() != 14 || snow.size() != 14) {
+      Serial.println("Incomplete precipitation forecast, using cached values.");
       return;
     }
-    int days = min((int)probs.size(), 14);
+    const int days = 14;
     int nextRainForecast[14];
-    memcpy(nextRainForecast, rainForecast, sizeof(nextRainForecast));
+    uint8_t nextPrecipitationType[14] = {};
   
      // map 50–100% → brightness 20–255, below 50% = off
   for (int i = 0; i < days; i++) {
@@ -4238,6 +4259,12 @@ void GetBrightnessLevel() {
       nextRainForecast[i] = 0;               
     } else {
       nextRainForecast[i] = map(pct, 50, 100, 20, 255);
+    }
+    if (rain[i].is<float>() && showers[i].is<float>() && snow[i].is<float>()) {
+      const bool hasRain = rain[i].as<float>() > 0 || showers[i].as<float>() > 0;
+      const bool hasSnow = snow[i].as<float>() > 0;
+      nextPrecipitationType[i] = hasSnow ? (hasRain ? PRECIP_MIXED : PRECIP_SNOW)
+                                        : (hasRain ? PRECIP_RAIN : PRECIP_UNKNOWN);
     }
   }
   
@@ -4250,14 +4277,19 @@ void GetBrightnessLevel() {
   // --- Adjust the order of the LED array to match your wiring ---
   // Required order: 13,12,11,10,9,8,7,0,1,2,3,4,5,6
   int tempHolder[14];
+  uint8_t typeHolder[14];
   static const uint8_t idxMap[14] = {
       7,8,9,10,11,12,13,   // new[0..6]
       6, 5, 4, 3, 2,1,0    // new[7..13]
   };
   for (int i = 0; i < 14; i++) {
       tempHolder[i] = nextRainForecast[idxMap[i]];
+      typeHolder[i] = nextPrecipitationType[idxMap[i]];
   }
+  portENTER_CRITICAL(&rainForecastMux);
   memcpy(rainForecast, tempHolder, sizeof(tempHolder));
+  memcpy(precipitationType, typeHolder, sizeof(typeHolder));
+  portEXIT_CRITICAL(&rainForecastMux);
 
     #endif
   }
@@ -4273,7 +4305,7 @@ void GetBrightnessLevel() {
       Serial.println("NOAA weather skipped: missing coordinates.");
       return;
     }
-    // 1) build the DWML XML URL
+    // 1) build the DWML XML URL (https://forecast.weather.gov/MapClick.php?lat=47.070&lon=-122.804&unit=0&lg=english&FcstType=dwml)
     float latF = atof(latitude);
     float lonF = atof(longitude);
     String url = String("https://forecast.weather.gov/MapClick.php") + "?lat=" + String(latF, 3) + "&lon=" + String(lonF, 3) + "&unit=0&lg=english&FcstType=dwml";
@@ -4705,6 +4737,16 @@ int currentHour  = timeinfo.tm_hour;
  if ((suspendType != 2 || isAsleep == 0) && useSpotlights == 1) {  //not sleeping? suposed to be running?
   unsigned long currentMillis = millis();  
   if (currentMillis - prevTime2 >= 250) {  //run everything inside here every quarter second
+    #if HAS_USWEATHER
+    int forecastBrightness[14];
+    uint8_t forecastType[14];
+    if (spotlightsColorSettings == 5) {
+      portENTER_CRITICAL(&rainForecastMux);
+      memcpy(forecastBrightness, rainForecast, sizeof(forecastBrightness));
+      memcpy(forecastType, precipitationType, sizeof(forecastType));
+      portEXIT_CRITICAL(&rainForecastMux);
+    }
+    #endif
     for (int i=SEGMENTS_LEDS; i<NUM_LEDS; i++) {
         if (spotlightsColorSettings == 0){ spotlightsColor = CRGB(spotlightsColorValue);  LEDs[i] = spotlightsColor;}
         if ((spotlightsColorSettings == 1 && pastelColors == 0)  && ( (ColorChangeFrequency == 0 ) || (ColorChangeFrequency == 1 && randomMinPassed == 1) || (ColorChangeFrequency == 2 && randomHourPassed == 1) || (ColorChangeFrequency == 3 && randomDayPassed == 1) || (ColorChangeFrequency == 4 && randomWeekPassed == 1) || (ColorChangeFrequency == 5 && randomMonthPassed == 1) )) { spotlightsColor = CHSV(random(0, 255), 255, 255);  LEDs[i] = spotlightsColor;}
@@ -4726,7 +4768,15 @@ int currentHour  = timeinfo.tm_hour;
               }
          }
         #if HAS_USWEATHER
-          if (spotlightsColorSettings == 5 ){ LEDs[i] = CRGB(0, 0, rainForecast[i-SEGMENTS_LEDS]); }// Use rainForecast for the current and next week
+          if (spotlightsColorSettings == 5) {
+            const int day = i - SEGMENTS_LEDS;
+            const uint8_t brightness = forecastBrightness[day];
+            switch (forecastType[day]) {
+              case PRECIP_SNOW: LEDs[i] = CRGB(brightness, brightness, brightness); break;
+              case PRECIP_MIXED: LEDs[i] = CRGB(brightness / 2, 0, brightness); break;
+              default: LEDs[i] = CRGB(0, 0, brightness); break;
+            }
+          }
           if (spotlightsColorSettings == 6 ){ LEDs[i] = tideColor[(i-SEGMENTS_LEDS)]; } // Use tideColor for the current hour and next 13 hours
           #endif
     }
@@ -6916,7 +6966,11 @@ void loadWebPageHandlers() {
       json["noaaTemp"] = noaaTemp;
       json["noaaHumidity"] = noaaHumidity;
       JsonArray rainForecastArray = json.createNestedArray("rainForecast");
-      for (int i = 0; i < 14; i++) { rainForecastArray.add(rainForecast[i]); }
+      int forecastBrightness[14];
+      portENTER_CRITICAL(&rainForecastMux);
+      memcpy(forecastBrightness, rainForecast, sizeof(forecastBrightness));
+      portEXIT_CRITICAL(&rainForecastMux);
+      for (int i = 0; i < 14; i++) { rainForecastArray.add(forecastBrightness[i]); }
       #endif
     #if HAS_ONLINEWEATHER || HAS_USWEATHER
       json["outdoorTemp"] = outdoorTemp;
