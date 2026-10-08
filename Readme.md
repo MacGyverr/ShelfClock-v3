@@ -1,5 +1,7 @@
 # ShelfClock Firmware v3
 
+<img width="2483" height="1765" alt="20211224_210619" src="https://github.com/user-attachments/assets/53944284-902c-4fc3-b0de-e370500cd475" />
+
 ShelfClock is an ESP32-powered seven-segment shelf display with clock, timer,
 scheduler, lighting, music, sensor, weather, and audio-spectrum modes. Version
 3 can be built as either a standalone PlatformIO application or an ESPHome
